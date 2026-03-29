@@ -8,10 +8,10 @@
     <style>
         body { margin:0; padding:0; font-family: sans-serif; background: #f4f4f4; }
         #map { height: 100vh; width: 100vw; }
-        .food-popup h3 { margin: 0 0 5px; color: #b52c1e; border-bottom: 1px solid #eee; }
+        .food-popup h3 { margin: 0 0 5px; color: #b52c1e; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .food-item { margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed #ccc; }
         .food-item:last-child { border-bottom: none; }
-        .map-link { color: #b52c1e; text-decoration: none; font-weight: bold; font-size: 11px; }
+        .map-link { color: #b52c1e; text-decoration: none; font-weight: bold; font-size: 11px; display: inline-block; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -21,81 +21,102 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
     <script>
+        // --- CONFIGURATION ---
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSyn57P7uF7Hmr9F9_q89UkwkGDHZZvPP-_OOhY48QhX3KNCgki0yCF-5am0h_XtQBleQGu8pEGf73t/pub?output=csv';
+        const verityRed = '#b52c1e';
+
+        // 1. Initialize Map
         const map = L.map('map').setView([20, 0], 2);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-const verityRed = '#b52c1e';
-
-// 1. Load World Borders First
-fetch('https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson')
-    .then(response => response.json())
-    .then(worldData => {
-        
-        // 2. Load Spreadsheet Data
-        Papa.parse(csvUrl, {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                const data = results.data;
-                
-                // 3. STRICT FILTER: Create a list of countries that have a valid Date
-                const validEatenCountries = data
-                    .filter(row => row.Country && row.Date && row.Date.trim() !== "")
-                    .map(row => row.Country.trim());
-
-                // 4. COLOR THE COUNTRIES (Only if in our valid list)
-                L.geoJson(worldData, {
-                    style: function(feature) {
-                        let countryName = feature.properties.name;
-                        let shouldColor = validEatenCountries.includes(countryName);
-                        
-                        return {
-                            fillColor: shouldColor ? verityRed : 'transparent',
-                            weight: shouldColor ? 1 : 0.5,
-                            opacity: 1,
-                            color: shouldColor ? 'white' : '#ddd',
-                            fillOpacity: shouldColor ? 0.5 : 0 // 0 means invisible/not colored
-                        };
-                    }
-                }).addTo(map);
-
-                // 5. PLACE ICONS AT GEOGRAPHICAL CENTERS
-                const groupedByCountry = {};
-                data.forEach(row => {
-                    if (row.Country && row.Date && row.Date.trim() !== "") {
-                        if (!groupedByCountry[row.Country]) groupedByCountry[row.Country] = [];
-                        groupedByCountry[row.Country].push(row);
-                    }
-                });
-
-                Object.keys(groupedByCountry).forEach(countryName => {
-                    const feature = worldData.features.find(f => f.properties.name === countryName);
-                    
-                    if (feature) {
-                        // Use Leaflet's internal bounds to find the center of the country shape
-                        const layer = L.geoJson(feature);
-                        const center = layer.getBounds().getCenter();
-
-                        let popupHtml = `<div class="food-popup"><h3>${countryName}</h3>`;
-                        groupedByCountry[countryName].forEach(item => {
-                            popupHtml += `
-                                <div class="food-item">
-                                    <p><b>${item.Restaurant}</b> (${item.Date})</p>
-                                    <p>${item.Location}</p>
-                                    <a href="${item['Google Maps']}" target="_blank" class="map-link">Google Maps →</a>
-                                </div>`;
-                        });
-                        popupHtml += `</div>`;
-
-                        L.marker(center, {icon: foodIcon})
-                         .bindPopup(popupHtml)
-                         .addTo(map);
-                    }
-                });
-            }
+        // 2. Define the Food Icon
+        const foodIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 110 130" width="30" height="36">
+                    <path d="M50,0 C22.4,0 0,22.4 0,50 C0,77.6 22.4,100 50,120 C77.6,100 100,77.6 100,50 C100,22.4 77.6,0 50,0 Z" stroke="${verityRed}" stroke-width="8" fill="#000000"/>
+                    <path d="M35,35 L45,65 M32,35 L32,45 M38,35 L38,45 M44,35 L44,45" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <ellipse cx="60" cy="42" rx="8" ry="12" fill="#ffffff" transform="rotate(-30, 60, 42)"/>
+                    <path d="M65,50 L55,75" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+            `),
+            iconSize: [30, 36], 
+            iconAnchor: [15, 36], 
+            popupAnchor: [0, -36]
         });
-    });
+
+        // 3. Load World Borders (GeoJSON)
+        fetch('https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson')
+            .then(response => response.json())
+            .then(worldData => {
+                
+                // 4. Load Spreadsheet Data via PapaParse
+                Papa.parse(csvUrl, {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        const data = results.data;
+                        
+                        // STRICT FILTER: Only countries with a Date value
+                        const validEatenCountries = data
+                            .filter(row => row.Country && row.Date && row.Date.trim() !== "")
+                            .map(row => row.Country.trim());
+
+                        // COLOR THE COUNTRIES
+                        L.geoJson(worldData, {
+                            style: function(feature) {
+                                let countryName = feature.properties.name;
+                                let shouldColor = validEatenCountries.includes(countryName);
+                                
+                                return {
+                                    fillColor: shouldColor ? verityRed : 'transparent',
+                                    weight: shouldColor ? 1 : 0.5,
+                                    opacity: 1,
+                                    color: shouldColor ? 'white' : '#ddd',
+                                    fillOpacity: shouldColor ? 0.5 : 0
+                                };
+                            }
+                        }).addTo(map);
+
+                        // GROUP RESTAURANTS BY COUNTRY FOR POPUPS
+                        const groupedByCountry = {};
+                        data.forEach(row => {
+                            if (row.Country && row.Date && row.Date.trim() !== "") {
+                                const cName = row.Country.trim();
+                                if (!groupedByCountry[cName]) groupedByCountry[cName] = [];
+                                groupedByCountry[cName].push(row);
+                            }
+                        });
+
+                        // PLACE ICONS AT COUNTRY CENTERS
+                        Object.keys(groupedByCountry).forEach(countryName => {
+                            const feature = worldData.features.find(f => f.properties.name === countryName);
+                            
+                            if (feature) {
+                                // Calculate the center of the country shape
+                                const layer = L.geoJson(feature);
+                                const center = layer.getBounds().getCenter();
+
+                                let popupHtml = `<div class="food-popup"><h3>${countryName}</h3>`;
+                                groupedByCountry[countryName].forEach(item => {
+                                    popupHtml += `
+                                        <div class="food-item">
+                                            <p><b>${item.Restaurant}</b> (${item.Date})</p>
+                                            <p>${item.Location}</p>
+                                            <a href="${item['Google Maps']}" target="_blank" class="map-link">Google Maps →</a>
+                                        </div>`;
+                                });
+                                popupHtml += `</div>`;
+
+                                L.marker(center, {icon: foodIcon})
+                                 .bindPopup(popupHtml)
+                                 .addTo(map);
+                            }
+                        });
+                    }
+                });
+            })
+            .catch(error => console.error('Error loading GeoJSON:', error));
     </script>
 </body>
 </html>
