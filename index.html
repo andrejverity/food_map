@@ -6,71 +6,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin:0; padding:0; font-family: sans-serif; }
+        body { margin:0; padding:0; font-family: sans-serif; background: #f4f4f4; }
         #map { height: 100vh; width: 100vw; }
-        .food-popup h3 { margin: 0 0 5px; color: #b52c1e; }
-        .food-popup p { margin: 3px 0; font-size: 13px; color: #333; }
-        .map-link { 
-            display: inline-block; 
-            margin-top: 10px; 
-            color: #b52c1e; 
-            text-decoration: none; 
-            font-weight: bold; 
-            font-size: 12px;
-        }
+        .food-popup h3 { margin: 0 0 5px; color: #b52c1e; border-bottom: 1px solid #eee; }
+        .food-item { margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed #ccc; }
+        .food-item:last-child { border-bottom: none; }
+        .map-link { color: #b52c1e; text-decoration: none; font-weight: bold; font-size: 11px; }
     </style>
 </head>
 <body>
     <div id="map"></div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
     <script>
-        const map = L.map('map').setView([20, 0], 2); // Global view
-
+        const map = L.map('map').setView([20, 0], 2);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        const verityRed = '#b52c1e';
 
         const foodIcon = L.icon({
             iconUrl: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 110 130" width="30" height="36">
-                    <path d="M50,0 C22.4,0 0,22.4 0,50 C0,77.6 22.4,100 50,120 C77.6,100 100,77.6 100,50 C100,22.4 77.6,0 50,0 Z" stroke="#b52c1e" stroke-width="8" fill="#000000"/>
+                    <path d="M50,0 C22.4,0 0,22.4 0,50 C0,77.6 22.4,100 50,120 C77.6,100 100,77.6 100,50 C100,22.4 77.6,0 50,0 Z" stroke="${verityRed}" stroke-width="8" fill="#000000"/>
                     <path d="M35,35 L45,65 M32,35 L32,45 M38,35 L38,45 M44,35 L44,45" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none"/>
                     <ellipse cx="60" cy="42" rx="8" ry="12" fill="#ffffff" transform="rotate(-30, 60, 42)"/>
                     <path d="M65,50 L55,75" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
                 </svg>
             `),
-            iconSize: [32, 38], iconAnchor: [16, 38], popupAnchor: [0, -38]
+            iconSize: [30, 36], iconAnchor: [15, 36], popupAnchor: [0, -36]
         });
 
-        // REPLACE WITH YOUR NEW CSV URL
-        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSyn57P7uF7Hmr9F9_q89UkwkGDHZZvPP-_OOhY48QhX3KNCgki0yCF-5am0h_XtQBleQGu8pEGf73t/pub?output=csv';
+        const csvUrl = 'YOUR_FOOD_SHEET_CSV_URL_HERE';
 
-        Papa.parse(csvUrl, {
-            download: true,
-            header: true,
-            complete: function(results) {
-                results.data.forEach(row => {
-                    if (row.Latitude && row.Longitude) {
-                        let popupBody = `
-                            <div class="food-popup">
-                                <h3>${row.Restaurant}</h3>
-                                <p><b>Location:</b> ${row.Location}</p>
-                                <p><b>Date:</b> ${row.Date}</p>
-                        `;
+        // 1. Fetch World Borders (GeoJSON)
+        fetch('https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson')
+            .then(response => response.json())
+            .then(worldData => {
+                
+                // 2. Load Spreadsheet Data
+                Papa.parse(csvUrl, {
+                    download: true,
+                    header: true,
+                    complete: function(results) {
+                        const data = results.data;
                         
-                        if(row['Google Maps']) {
-                            popupBody += `<a href="${row['Google Maps']}" target="_blank" class="map-link">View on Google Maps →</a>`;
-                        }
-                        
-                        popupBody += `</div>`;
+                        // Create a set of countries we have eaten from
+                        const eatenCountries = [...new Set(data.map(row => row.Country))];
 
-                        L.marker([row.Latitude, row.Longitude], {icon: foodIcon})
-                         .bindPopup(popupBody)
-                         .addTo(map);
+                        // 3. Color the Countries
+                        L.geoJson(worldData, {
+                            style: function(feature) {
+                                let isEaten = eatenCountries.includes(feature.properties.name);
+                                return {
+                                    fillColor: isEaten ? verityRed : 'transparent',
+                                    weight: isEaten ? 1 : 0.5,
+                                    opacity: 1,
+                                    color: isEaten ? 'white' : '#ddd',
+                                    fillOpacity: isEaten ? 0.4 : 0
+                                };
+                            }
+                        }).addTo(map);
+
+                        // 4. Place Icons at Country Centroids
+                        // We group restaurants by country so one pin shows all restaurants in that country
+                        const groupedByCountry = {};
+                        data.forEach(row => {
+                            if (!row.Country) return;
+                            if (!groupedByCountry[row.Country]) groupedByCountry[row.Country] = [];
+                            groupedByCountry[row.Country].push(row);
+                        });
+
+                        // We find the country polygon in GeoJSON to get the center
+                        Object.keys(groupedByCountry).forEach(countryName => {
+                            const feature = worldData.features.find(f => f.properties.name === countryName);
+                            if (feature) {
+                                // Simple centroid calculation or use predefined Lat/Long from your sheet if available
+                                // For best results, I'll use your spreadsheet's Lat/Long from the FIRST entry of that country
+                                const firstEntry = groupedByCountry[countryName][0];
+                                const lat = firstEntry.Latitude;
+                                const lon = firstEntry.Longitude;
+
+                                if (lat && lon) {
+                                    let popupHtml = `<h3>${countryName}</h3>`;
+                                    groupedByCountry[countryName].forEach(item => {
+                                        popupHtml += `
+                                            <div class="food-item">
+                                                <p><b>${item.Restaurant}</b> (${item.Date})</p>
+                                                <p>${item.Location}</p>
+                                                <a href="${item['Google Maps']}" target="_blank" class="map-link">Google Maps →</a>
+                                            </div>`;
+                                    });
+
+                                    L.marker([lat, lon], {icon: foodIcon})
+                                     .bindPopup(popupHtml)
+                                     .addTo(map);
+                                }
+                            }
+                        });
                     }
                 });
-            }
-        });
+            });
     </script>
 </body>
 </html>
