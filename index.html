@@ -42,18 +42,22 @@
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
         // 2. Define the Food Icon
-        const foodIcon = L.icon({
+          const foodIcon = L.icon({
             iconUrl: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-5 -5 110 130" width="30" height="36">
-                    <path d="M50,0 C22.4,0 0,22.4 0,50 C0,77.6 22.4,100 50,120 C77.6,100 100,77.6 100,50 C100,22.4 77.6,0 50,0 Z" stroke="${verityRed}" stroke-width="8" fill="#000000"/>
-                    <path d="M35,35 L45,65 M32,35 L32,45 M38,35 L38,45 M44,35 L44,45" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none"/>
-                    <ellipse cx="60" cy="42" rx="8" ry="12" fill="#ffffff" transform="rotate(-30, 60, 42)"/>
-                    <path d="M65,50 L55,75" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M50,0 C22.4,0 0,22.4 0,50 C0,77.6 22.4,100 50,120 C77.6,100 100,77.6 100,50 C100,22.4 77.6,0 50,0 Z" 
+                          stroke="#b52c1e" stroke-width="8" fill="#000000"/>
+                    
+                    <path d="M25,60 C25,35 75,35 75,60 L75,65 L25,65 Z" fill="#ffffff"/>
+                    <circle cx="50" cy="35" r="5" fill="#ffffff"/>
+                    <path d="M42,28 Q45,22 42,16" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none"/>
+                    <path d="M50,25 Q53,19 50,13" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none"/>
+                    <path d="M58,28 Q61,22 58,16" stroke="#ffffff" stroke-width="3" stroke-linecap="round" fill="none"/>
                 </svg>
             `),
-            iconSize: [30, 36], 
-            iconAnchor: [15, 36], 
-            popupAnchor: [0, -36]
+            iconSize: [30, 36], // Re-adjusted slightly for better readability
+            iconAnchor: [15, 36], // Anchored at the bottom center of the pin
+            popupAnchor: [0, -36]  // Popup opens right above the pin
         });
 
         // 3. Load World Borders (GeoJSON)
@@ -114,7 +118,7 @@
                                     popupHtml += `
                                         <div class="food-item">
                                             <p><b>Restaurant:</b> ${item.Restaurant}</p>
-                                            <p><b>Date:</b> ${item.Date}</p>
+                                            <p>Date: ${item.Date}</p>
                                             <p><b>Location:</b> ${item.Location}</p>
                                             <a href="${item['Google Maps']}" target="_blank" class="map-link">View on Google Maps →</a>
                                         </div>`;
