@@ -8,9 +8,21 @@
     <style>
         body { margin:0; padding:0; font-family: sans-serif; background: #f4f4f4; }
         #map { height: 100vh; width: 100vw; }
+        .food-popup {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 10px;
+    min-width: 200px;
+}
         .food-popup h3 { margin: 0 0 5px; color: #b52c1e; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .food-item { margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed #ccc; }
         .food-item:last-child { border-bottom: none; }
+        .food-item b {
+    color: #555;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
         .map-link { color: #b52c1e; text-decoration: none; font-weight: bold; font-size: 11px; display: inline-block; margin-top: 5px; }
     </style>
 </head>
@@ -101,9 +113,10 @@
                                 groupedByCountry[countryName].forEach(item => {
                                     popupHtml += `
                                         <div class="food-item">
-                                            <p><b>${item.Restaurant}</b> (${item.Date})</p>
-                                            <p>${item.Location}</p>
-                                            <a href="${item['Google Maps']}" target="_blank" class="map-link">Google Maps →</a>
+                                            <p><b>Restaurant:</b> ${item.Restaurant}</p>
+                                            <p><b>Date:</b> ${item.Date}</p>
+                                            <p><b>Location:</b> ${item.Location}</p>
+                                            <a href="${item['Google Maps']}" target="_blank" class="map-link">View on Google Maps →</a>
                                         </div>`;
                                 });
                                 popupHtml += `</div>`;
